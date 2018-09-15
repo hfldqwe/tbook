@@ -2,13 +2,10 @@ import tornado.web
 from tornado.httpclient import AsyncHTTPClient
 import tornado.gen
 
-from utils.book_spider import Spider
 from utils.book_spider import Config
 from utils import book_spider
 
-import json
-
-spider = Spider()
+from log import log
 
 
 class IndexHandler(tornado.web.RequestHandler):
@@ -46,8 +43,21 @@ class SearchHandler(tornado.web.RequestHandler):
 
         client = AsyncHTTPClient()
         url = book_spider.search_payload(strText=strText, page=page,onlylendable=onlylendable)          # 构造url
-        response = yield client.fetch(url, headers=headers,connect_timeout=10,request_timeout=15)       # yield调用client.fetch
-        data = book_spider.search_dispose(response.body)                                                # 处理数据
+
+        try:
+            response = yield client.fetch(url, headers=headers,connect_timeout=10,request_timeout=15)       # yield调用client.fetch
+        except BaseException as e:
+            log.error(str(e) + ":request error : search")
+            data = book_spider.search_data(book_storm_dict=None, current_end_page=None, msg={2: "请求失败"})
+        else:
+            try:
+                # 处理爬下来的代码
+                data = book_spider.search_dispose(response.body)
+            except IndexError:
+                data = book_spider.search_data(book_storm_dict=None, current_end_page=None, msg={0: "查询结果为空"})
+            except BaseException as e:
+                log.error(str(e) + ":parser html error")
+                data = book_spider.search_data(book_storm_dict=None, current_end_page=None, msg={1: "查询失败"})             # 处理数据
         self.write(data)
 
 class BookLstHandler(tornado.web.RequestHandler):
@@ -57,8 +67,19 @@ class BookLstHandler(tornado.web.RequestHandler):
         用来查询个人借阅情况
         '''
         client = AsyncHTTPClient()
-        response = yield client.fetch(Config.book_lst_url, headers=self.headers, connect_timeout=10, request_timeout=15)
-        data = book_spider.booklst_dispose(response.body)
+        try:
+            # 异步爬虫，以及错误处理
+            response = yield client.fetch(Config.book_lst_url, headers=self.headers, connect_timeout=10, request_timeout=15)
+        except BaseException as e:
+            log.error(str(e)+":request error : booklst")
+            return {"msg":{2:"请求失败"}}
+        else:
+            # 对爬取的数据进行解析
+            try:
+                data = book_spider.booklst_dispose(response.body)
+            except BaseException as e:
+                log.error(str(e)+":booklst处理出现错误:"+response.text)
+                return {"msg":{1:"查询失败"}}
         self.write(data)
 
     @tornado.gen.coroutine
