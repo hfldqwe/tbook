@@ -4,6 +4,7 @@ import tornado.gen
 
 from utils.book_spider import Config
 from utils import book_spider
+from spider.chd import tbook_cookies
 
 from log import log
 
@@ -106,28 +107,37 @@ class BookLstHandler(tornado.web.RequestHandler):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36",
             "Accept": "text/html, */*; q=0.01",
         }
-        iPlanetDirectoryPro = self.get_argument("iPlanetDirectoryPro", None)
-        PHPSESSID = self.get_argument("PHPSESSID", None)
-        cookies = "iPlanetDirectoryPro={};PHPSESSID={}".format(iPlanetDirectoryPro, PHPSESSID)
-        headers["Cookie"] = cookies
-        return headers
+        username = self.get_argument("username", None)
+        password = self.get_argument("password", None)
 
-class AsyncHandler(tornado.web.RequestHandler):
-    @tornado.gen.coroutine
-    def get(self, *args, **kwargs):
-        client = AsyncHTTPClient()
-        response = yield client.fetch(Config.book_lst_url,headers=self.headers,connect_timeout=10,request_timeout=15)
-        data = book_spider.booklst_dispose(response.body)
-        self.write(data)
+        cookies = tbook_cookies(username=username,password=password)
+        iPlanetDirectoryPro = cookies.get("iPlanetDirectoryPro")
+        PHPSESSID = cookies.get("PHPSESSID")
 
-    @property
-    def headers(self):
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36",
-            "Accept": "text/html, */*; q=0.01",
-        }
-        iPlanetDirectoryPro = self.get_argument("iPlanetDirectoryPro", None)
-        PHPSESSID = self.get_argument("PHPSESSID", None)
-        cookies = "iPlanetDirectoryPro={};PHPSESSID={}".format(iPlanetDirectoryPro, PHPSESSID)
-        headers["Cookie"] = cookies
-        return headers
+        if iPlanetDirectoryPro and PHPSESSID:
+            cookies = "iPlanetDirectoryPro={};PHPSESSID={}".format(iPlanetDirectoryPro, PHPSESSID)
+            headers["Cookie"] = cookies
+            return headers
+        else:
+            log.error("cookies为空")
+            return None
+
+# class AsyncHandler(tornado.web.RequestHandler):
+#     @tornado.gen.coroutine
+#     def get(self, *args, **kwargs):
+#         client = AsyncHTTPClient()
+#         response = yield client.fetch(Config.book_lst_url,headers=self.headers,connect_timeout=10,request_timeout=15)
+#         data = book_spider.booklst_dispose(response.body)
+#         self.write(data)
+#
+#     @property
+#     def headers(self):
+#         headers = {
+#             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36",
+#             "Accept": "text/html, */*; q=0.01",
+#         }
+#         iPlanetDirectoryPro = self.get_argument("iPlanetDirectoryPro", None)
+#         PHPSESSID = self.get_argument("PHPSESSID", None)
+#         cookies = "iPlanetDirectoryPro={};PHPSESSID={}".format(iPlanetDirectoryPro, PHPSESSID)
+#         headers["Cookie"] = cookies
+#         return headers

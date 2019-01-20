@@ -47,7 +47,7 @@ msg={1:"查询失败"}
 
 
 ## 查询个人借阅情况： ##
-http://127.0.0.1:8000/booklst?iPlanetDirectoryPro=cookies中的一个参数&PHPSESSID=另一个cookies中的参数
+http://127.0.0.1:8000/booklst?username=xxxx&password=password
 返回示例：
 {'info':
     {
@@ -81,8 +81,8 @@ http://127.0.0.1:8000/booklst
 "bar_code":"xxx",  
 "check":"xxx",  
 "captcha":"xxx",  
-"iPlanetDirectoryPro":"xxx",  
-"PHPSESSID":"xxx"，  
+"username":"xxx",  
+"username":"xxx"，  
 }
 
 请求方法：POST  
@@ -102,16 +102,6 @@ http://127.0.0.1:8000/booklst
 
 错误的验证码(wrong check code)
 
-没有测试成功的情况，所有不是很清楚
+没有测试成功的情况，所以不是很清楚
 
 
-
-## 后续更改： ##
-
-这部分代码只能算是初次修改完成，  
-爬虫使用requests，beautifulsoup，re等模块完成  
-使用logging模块记录异常情况日志，之后建议优化为redis
-API部分由tornado异步框架+supervisor部署完成（之前使用django）
-
-由于django过于庞大，使用tornado更节省性能。  
-之后api基本上不会改变，可能进行优化，但是后端tornado代码会进行优化，将requests改为使用异步处理

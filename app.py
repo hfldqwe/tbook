@@ -5,7 +5,7 @@ from tornado.options import define,options
 
 from handler import main
 
-define('port', default=8000, help='run port', type=int)
+define('port', default=8005, help='run port', type=int)
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -13,7 +13,7 @@ class Application(tornado.web.Application):
             ('/',main.IndexHandler),
             ('/search',main.SearchHandler),
             ('/booklst',main.BookLstHandler),
-            ('/async',main.AsyncHandler),
+            # ('/async',main.AsyncHandler),
         ]
         settings = dict(
             debug = True,
