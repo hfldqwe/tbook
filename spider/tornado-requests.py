@@ -50,17 +50,22 @@ class Request(Single):
             self.client = AsyncHTTPClient()
 
     async def requests(self,method,url,**kwargs):
-        body = kwargs.get("body")
-        if body:
-            if isinstance(body,collections.abc.MutableMapping):
-                body = urllib.parse.urlencode(body)
-                kwargs["body"] = body
+        data = kwargs.get("data")
+        if data and not kwargs.get("body"):
+            if isinstance(data,collections.abc.MutableMapping):
+                data = urllib.parse.urlencode(data)
+                kwargs["body"] = data
+            del kwargs["data"]
         response = await self.client.fetch(url,method=method,**kwargs)
         resp = Response._response(response=response,request=self)
         return resp
 
     async def get(self,url,**kwargs):
-        return await self.requests(method="GET",url=url,**kwargs)
+        response = await self.requests(method="GET",url=url,**kwargs)
+        print("response:",response.text)
+        print(response.encoding)
+        print(response.status)
+        return response
 
     async def post(self,url,**kwargs):
         return await self.requests(method="POST", url=url,**kwargs)
