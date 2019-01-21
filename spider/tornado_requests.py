@@ -1,6 +1,8 @@
 import urllib.parse
-import collections.abc
-from tornado.httpclient import AsyncHTTPClient
+try:
+    from tornado.curl_httpclient import CurlAsyncHTTPClient as AsyncHTTPClient
+except:
+    from tornado.httpclient import AsyncHTTPClient
 
 class Single():
     ''' 单例模式 '''
@@ -8,6 +10,10 @@ class Single():
         if not hasattr(cls,"_instance"):
             cls._instance = super().__new__(cls)
         return cls._instance
+
+def urlencode(url,query):
+    ''' 用来处理url '''
+    return url + "?" + urllib.parse.urlencode(query)
 
 class Response():
     def __init__(self,request):
@@ -24,6 +30,15 @@ class Response():
         '''
         resp.__dict__.update(response.__dict__)
         return resp
+
+    @property
+    def body(self):
+        if self.buffer is None:
+            return None
+        elif self._body is None:
+            self._body = self.buffer.getvalue()
+
+        return self._body
 
     @property
     def content(self):
@@ -49,22 +64,36 @@ class Request(Single):
         if not hasattr(self,"client"):
             self.client = AsyncHTTPClient()
 
+    def prepare(self,
+                url=None, headers={}, files=None, data=None,
+                params=None, auth=None, cookies=None, hooks=None, json=None,**kwargs):
+        ''' 暂时只重写了部分参数，其他暂时空缺 '''
+        if data:
+            body = urllib.parse.urlencode(data) if data else ""
+        else:
+            body = None
+
+        if params:
+            url = url + "?" + urllib.parse.urlencode(query=params)
+
+        if cookies:
+            headers.update({"Cookie":urllib.parse.urlencode(cookies)})
+
+        return url,{
+            "headers":headers,
+            "body":body,
+        }
+
     async def requests(self,method,url,**kwargs):
-        data = kwargs.get("data")
-        if data and not kwargs.get("body"):
-            if isinstance(data,collections.abc.MutableMapping):
-                data = urllib.parse.urlencode(data)
-                kwargs["body"] = data
-            del kwargs["data"]
+        ''' 相当于一个基本的请求 '''
+        url,kwargs = self.prepare(url=url,**kwargs)
+
         response = await self.client.fetch(url,method=method,**kwargs)
         resp = Response._response(response=response,request=self)
         return resp
 
     async def get(self,url,**kwargs):
         response = await self.requests(method="GET",url=url,**kwargs)
-        print("response:",response.text)
-        print(response.encoding)
-        print(response.status)
         return response
 
     async def post(self,url,**kwargs):
@@ -72,3 +101,11 @@ class Request(Single):
 
 
 requests = Request()
+
+if __name__ == '__main__':
+    import asyncio
+    loop = asyncio.get_event_loop()
+    async def main():
+        response = await requests.post("https://www.baidu.com",cookies={"abc":123})
+        print(response.text)
+    loop.run_until_complete(main())

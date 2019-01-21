@@ -2,6 +2,7 @@
 用来进行设置，读取设置，修改设置等等操作
 '''
 import os
+import time
 from utils.config import Application,UrlConfig
 
 run_dir = os.getcwd()
@@ -26,6 +27,8 @@ class Url(UrlConfig):
             "login_cas":"http://ids.chd.edu.cn/authserver/login", #cas 认证系统
             "login":"http://ids.chd.edu.cn/authserver/login?service=http%3A%2F%2Fportal.chd.edu.cn%2F", #chd登陆
             "tbook":"http://wiscom.chd.edu.cn:8080/reader/hwthau.php",   # 图书馆链接
+            "need_captcha":"http://ids.chd.edu.cn/authserver/needCaptcha.html", # 确认是否需要验证码
+            "captcha":"http://ids.chd.edu.cn/authserver/captcha.html",  # 验证码的链接
         }
         super().__init__(**urls)
 
@@ -42,6 +45,12 @@ class Url(UrlConfig):
 
     def login_url(self):
         return self.login
+
+    def need_captcha_url(self,username):
+        return self.urlencode(self.need_captcha,username=username,_=int(time.time()*1000))
+
+    def captcha_url(self):
+        return self.captcha
 
 os.chdir(dir)
 settings = Settings()

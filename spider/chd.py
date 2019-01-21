@@ -1,8 +1,13 @@
 import requests
 from lxml import etree
+from PIL import Image
+from io import BytesIO
 
 from settings import settings,url
 from models.redis_handler import BaseRedis
+from utils.chaojiying import Chaojiying_Client
+
+chaojiying = Chaojiying_Client('chdliutao', 'chdliutao', '898470')  #用户中心>>软件ID 生成一个替换 96001
 
 red = BaseRedis()
 
@@ -10,6 +15,28 @@ class Login():
     def __init__(self,username=None,password=None,*args,**kwargs):
         self.username = username
         self.password = password
+
+    def captcha(self,cookies):
+        response = requests.get(url.need_captcha_url(username=self.username),headers=url.headers(),cookies=cookies)
+        if response.text.strip() == "true":
+            captcha_response = requests.get(url=url.captcha_url(),headers=url.headers(),cookies=cookies)
+            return captcha_response
+        else:
+            return None
+    def captcha_data(self,response,cas_cookies):
+        '''
+        通过验证码验证
+        :param response: 初步访问的response
+        :param cas_cookies: 初步访问增加的cookies
+        :return: data一个字典，用于后面登陆的参数
+        '''
+        captcha_response = self.captcha(cookies=cas_cookies)
+        if captcha_response:
+            captcha = chaojiying.PostPic(captcha_response.content, 1004).get("pic_str")
+            data = self.login_data_captcha(response, captcha)
+        else:
+            data = self.login_data(response)
+        return data
 
     def login_cas(self):
         '''
@@ -19,8 +46,10 @@ class Login():
         cas_cookies = {}
         #登陆之前的一个get请求，获取参数
         response = requests.get(url.login_cas_url(),headers=url.headers())
-        data = self.login_data(response)
         cas_cookies.update(dict(response.cookies))
+
+        # 进行验证码确认，是否需要验证码,并且得到相应的data
+        data = self.captcha_data(response,cas_cookies)
 
         #进行登陆第一步，或者iPlanetDirectoryPro和CASTGC的值
         response = requests.post(url.login_cas_url(),headers=url.headers(),data=data,cookies=response.cookies,allow_redirects=False)
@@ -29,7 +58,7 @@ class Login():
         cas_cookies["iPlanetDirectoryPro"] = response.cookies.get("iPlanetDirectoryPro")
         return cas_cookies
 
-    def login_st(self,cas_cookies,service=None):
+    def login_tbook(self,cas_cookies,service=None):
         ''' 使用ST进行验证登陆，返回对应网站的cookies '''
         cas_service = url.login_cas_url(service=service)
         response = requests.get(url=cas_service,headers=url.headers(),cookies=cas_cookies,allow_redirects=False)
@@ -40,6 +69,11 @@ class Login():
 
         response = requests.get(url=ST_url,headers=url.headers(),cookies=cookies,allow_redirects=False)
         cookies.update(dict(response.cookies))
+
+        # 这一步的进行还是很有必要的，因为不进行这一步，实际过程中还是会强行跳转到此
+        common_url = response.headers.get("Location")
+        requests.get(url=common_url,headers=url.headers(),cookies=cookies)
+
         return cookies
 
     def login_data(self,response):
@@ -62,6 +96,12 @@ class Login():
             "btn": "",
         }
         return formdata
+
+    def login_data_captcha(self,response,captcha):
+        ''' 在有验证的情况下调用这个方法 '''
+        data = self.login_data(response)
+        data["captchaResponse"] = captcha
+        return data
 
     def login_chd(self,response):
         ''' 这段代码需要小小的修改，暂时不可用 '''
@@ -114,12 +154,12 @@ def tbook_cookies(username,password):
 
     # 检查是否有cas的cookies
     if cookies_cas:
-        cookies_tbook = login.login_st(cas_cookies=cookies_cas,service=url.tbook_url())
+        cookies_tbook = login.login_tbook(cas_cookies=cookies_cas,service=url.tbook_url())
         cookies.set_cookies(username=username,cookies=cookies_tbook,type="tbook")
         return cookies_tbook
     else:
         cookies_cas = login.login_cas()
-        cookies_tbook = login.login_st(cas_cookies=cookies_cas,service=url.tbook_url())
+        cookies_tbook = login.login_tbook(cas_cookies=cookies_cas,service=url.tbook_url())
         cookies.set_cookies(username=username,cookies=cookies_cas,type="cas")
         cookies.set_cookies(username=username,cookies=cookies_tbook,type="tbook")
         return cookies_tbook
@@ -128,7 +168,7 @@ if __name__ == '__main__':
     pass
     # login = Login(2017905714,xx)
     # cookies = login.login_cas()
-    # print(login.login_st(cas_cookies=cookies,service=url.tbook_url()))
+    # print(login.login_tbook(cas_cookies=cookies,service=url.tbook_url()))
 
     # print(tbook_cookies(username=2017905714,password=xxxx))
 

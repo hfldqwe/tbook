@@ -1,3 +1,5 @@
+from lxml import etree
+import json
 import tornado.web
 from tornado.httpclient import AsyncHTTPClient
 import tornado.gen
@@ -5,6 +7,7 @@ import tornado.gen
 from utils.book_spider import Config
 from utils import book_spider
 from spider.chd import tbook_cookies
+from spider.tornado_requests import requests
 
 from log import log
 
@@ -62,15 +65,16 @@ class SearchHandler(tornado.web.RequestHandler):
         self.write(data)
 
 class BookLstHandler(tornado.web.RequestHandler):
-    @tornado.gen.coroutine
-    def get(self, *args, **kwargs):
+    async def get(self, *args, **kwargs):
         '''
         用来查询个人借阅情况
         '''
+        data = {}
         client = AsyncHTTPClient()
+        headers = self.headers
         try:
             # 异步爬虫，以及错误处理
-            response = yield client.fetch(Config.book_lst_url, headers=self.headers, connect_timeout=10, request_timeout=15)
+            response = await requests.get(Config.book_lst_url, headers=headers, connect_timeout=10, request_timeout=15)
         except BaseException as e:
             log.error(str(e)+":request error : booklst")
             return {"msg":{2:"请求失败"}}
@@ -81,10 +85,47 @@ class BookLstHandler(tornado.web.RequestHandler):
             except BaseException as e:
                 log.error(str(e)+":booklst处理出现错误:"+response.text)
                 return {"msg":{1:"查询失败"}}
+
+        # 请求历史借阅
+        try:
+            history = await self.history()
+        except BaseException as e:
+            log.error(str(e) + ":request error : history")
+            return {"msg": {2: "请求失败"}}
+        else:
+            data.update({"history":history})
+
+        # 请求违章缴款
+        try:
+            fine = await self.fine()
+        except BaseException as e:
+            log.error(str(e) + ":request error : fine")
+            return {"msg": {2: "请求失败"}}
+        else:
+            data.update({"fine":fine})
+
+        data = json.dumps(data, ensure_ascii=False)
         self.write(data)
 
-    @tornado.gen.coroutine
-    def post(self, *args, **kwargs):
+    async def history(self):
+        data = {}
+        response = await requests.get(Config.book_hist_url, headers=self.headers, connect_timeout=10, request_timeout=15)
+        response = etree.HTML(response.text)
+        trs = response.xpath("//div[@id='mylib_content']//tr")
+        for i in range(len(trs)):
+            data[i] = [tr.xpath(".//text()")[0].strip() for tr in trs[i].xpath(".//td")[1:]]
+        return data
+
+    async def fine(self):
+        data = {}
+        response = await requests.get(Config.fine_pec_url,headers=self.headers, connect_timeout=10, request_timeout=15)
+        response = etree.HTML(response.text)
+        trs = response.xpath("//div[@id='mylib_content']//tr")
+        for i in range(len(trs)):
+            data[i] = [tr.xpath(".//text()")[0].strip() for tr in trs[i].xpath(".//td")]
+        return data
+
+    async def post(self, *args, **kwargs):
         '''
         用来续借
         '''
@@ -94,7 +135,7 @@ class BookLstHandler(tornado.web.RequestHandler):
 
         client = AsyncHTTPClient()
         url = book_spider.renew_parmas(bar_code, captcha, check)
-        response = yield client.fetch(url,headers=self.headers,connect_timeout=10,request_timeout=15)
+        response = await client.fetch(url,headers=self.headers,connect_timeout=10,request_timeout=15)
         self.write(response.body)
 
     @property
@@ -105,7 +146,6 @@ class BookLstHandler(tornado.web.RequestHandler):
         '''
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36",
-            "Accept": "text/html, */*; q=0.01",
         }
         username = self.get_argument("username", None)
         password = self.get_argument("password", None)
@@ -121,6 +161,7 @@ class BookLstHandler(tornado.web.RequestHandler):
         else:
             log.error("cookies为空")
             return None
+
 
 # class AsyncHandler(tornado.web.RequestHandler):
 #     @tornado.gen.coroutine
