@@ -27,6 +27,7 @@ class Url(UrlConfig):
             "login_cas":"http://ids.chd.edu.cn/authserver/login", #cas 认证系统
             "login":"http://ids.chd.edu.cn/authserver/login?service=http%3A%2F%2Fportal.chd.edu.cn%2F", #chd登陆
             "tbook":"http://wiscom.chd.edu.cn:8080/reader/hwthau.php",   # 图书馆链接
+            "tbook_index":"http://wiscom.chd.edu.cn:8080/reader/redr_info.php", #  图书馆的首页
             "need_captcha":"http://ids.chd.edu.cn/authserver/needCaptcha.html", # 确认是否需要验证码
             "captcha":"http://ids.chd.edu.cn/authserver/captcha.html",  # 验证码的链接
         }
@@ -42,6 +43,10 @@ class Url(UrlConfig):
     def tbook_url(self):
         ''' 访问图书馆的链接 '''
         return self.tbook
+
+    def tbook_index_url(self):
+        ''' 图书馆的首页，用于验证图书馆登陆状况 '''
+        return self.tbook_index
 
     def login_url(self):
         return self.login

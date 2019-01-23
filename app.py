@@ -13,9 +13,12 @@ class Application(tornado.web.Application):
             ('/',main.IndexHandler),
             ('/search',main.SearchHandler),
             ('/booklst',main.BookLstHandler),
+            ('/history',main.HistoryHandler),
+            ('/fine',main.FineHandler),
+            ('/renew',main.RenewHandler),
         ]
         settings = dict(
-            debug = True,
+            debug = False,
             template_path = "templates",
             static_path = 'static',
         )

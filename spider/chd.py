@@ -1,5 +1,6 @@
 import requests
 from lxml import etree
+import re
 from PIL import Image
 from io import BytesIO
 
@@ -23,6 +24,7 @@ class Login():
             return captcha_response
         else:
             return None
+
     def captcha_data(self,response,cas_cookies):
         '''
         通过验证码验证
@@ -72,9 +74,20 @@ class Login():
 
         # 这一步的进行还是很有必要的，因为不进行这一步，实际过程中还是会强行跳转到此
         common_url = response.headers.get("Location")
-        requests.get(url=common_url,headers=url.headers(),cookies=cookies)
+        requests.get(url=common_url, headers=url.headers(), cookies=cookies)
 
         return cookies
+
+    def verify_cas_cookies(self,username,cas_cookies):
+        response = requests.get(url.login_cas_url(),headers=url.headers(),cookies=cas_cookies)
+        passed = re.compile(username).findall(response.text)
+        if passed:
+            return True
+
+    def verify_tbook_cookies(self,tbook_cookies):
+        response = requests.get(url.tbook_index_url(),headers=url.headers(),cookies=tbook_cookies)
+        if re.compile("长安大学图书馆").match(response.text):
+            return True
 
     def login_data(self,response):
         response = etree.HTML(response.text)
@@ -103,22 +116,22 @@ class Login():
         data["captchaResponse"] = captcha
         return data
 
-    def login_chd(self,response):
-        ''' 这段代码需要小小的修改，暂时不可用 '''
-        #进行登陆第二步
-        login_url2 = response.headers.get("Location")   #这一步不知道什么用，但是获取了一个MOD_AUTH_CAS的cookies
-        response = requests.get(login_url2,headers=url.headers(),cookies=response.cookies,allow_redirects=False)
-        self.cookie_jar.set(name="MOD_AUTH_CAS",value=response.cookies.get("MOD_AUTH_CAS"))
-
-        #进行登陆的第三步
-        login_url3 = response.headers.get("Location")   #这一步进入算是成功进入信息门户(portal)，有新的cookies
-        response = requests.get(login_url3,headers=url.headers(),cookies=self.cookie_jar,allow_redirects=False)
-
-        cookies = {
-            "JSESSIONID":response.cookies.get("JSESSIONID"),
-            "route":response.cookies.get("route"),
-        }
-        return cookies
+    # def login_chd(self,response):
+    #     ''' 这段代码需要小小的修改，暂时不可用 '''
+    #     #进行登陆第二步
+    #     login_url2 = response.headers.get("Location")   #这一步不知道什么用，但是获取了一个MOD_AUTH_CAS的cookies
+    #     response = requests.get(login_url2,headers=url.headers(),cookies=response.cookies,allow_redirects=False)
+    #     self.cookie_jar.set(name="MOD_AUTH_CAS",value=response.cookies.get("MOD_AUTH_CAS"))
+    #
+    #     #进行登陆的第三步
+    #     login_url3 = response.headers.get("Location")   #这一步进入算是成功进入信息门户(portal)，有新的cookies
+    #     response = requests.get(login_url3,headers=url.headers(),cookies=self.cookie_jar,allow_redirects=False)
+    #
+    #     cookies = {
+    #         "JSESSIONID":response.cookies.get("JSESSIONID"),
+    #         "route":response.cookies.get("route"),
+    #     }
+    #     return cookies
 
 class Cookies():
     def set_cookies(self,username,cookies,type="cas"):
@@ -146,14 +159,15 @@ cookies = Cookies()
 def tbook_cookies(username,password):
     ''' 用来查询图书馆的cookies，如果没有则请求建立，如果有，则直接使用 '''
     cookies_tbook = cookies.get_cookies(username,type="tbook")
-    if cookies_tbook:
+    login = Login(username, password)
+
+    # 检查是否有cookies_tbook并且是否通过验证
+    if cookies_tbook and login.verify_tbook_cookies(tbook_cookies=cookies_tbook):
         return cookies_tbook
 
     cookies_cas = cookies.get_cookies(username,type="cas")
-    login = Login(username, password)
-
-    # 检查是否有cas的cookies
-    if cookies_cas:
+    # 检查是否有cas的cookies并且是否通过验证
+    if cookies_cas and login.verify_cas_cookies(username=username,cas_cookies=cookies_cas):
         cookies_tbook = login.login_tbook(cas_cookies=cookies_cas,service=url.tbook_url())
         cookies.set_cookies(username=username,cookies=cookies_tbook,type="tbook")
         return cookies_tbook
@@ -165,10 +179,9 @@ def tbook_cookies(username,password):
         return cookies_tbook
 
 if __name__ == '__main__':
-    pass
-    # login = Login(2017905714,xx)
-    # cookies = login.login_cas()
-    # print(login.login_tbook(cas_cookies=cookies,service=url.tbook_url()))
-
-    # print(tbook_cookies(username=2017905714,password=xxxx))
-
+    login = Login(123,123)
+    cas_cookies = login.login_cas()
+    cookies = login.login_tbook(cas_cookies=cas_cookies,service=url.tbook_url())
+    print(cookies)
+    response = requests.get(url.tbook_index_url(),cookies=cookies,headers=url.headers())
+    print(response.text)
