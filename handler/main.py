@@ -49,7 +49,7 @@ class BaseHandler(tornado.web.RequestHandler):
 
 class SearchHandler(tornado.web.RequestHandler):
 
-    async def get(self, *args, **kwargs):
+    async def post(self, *args, **kwargs):
         '''
         用来搜索图书馆馆藏信息
         :param strText: 搜索的内容，如：strText="python"
@@ -114,7 +114,7 @@ class SearchHandler(tornado.web.RequestHandler):
         return data
 
 class BookLstHandler(BaseHandler):
-    async def get(self, *args, **kwargs):
+    async def post(self, *args, **kwargs):
         '''
         用来查询个人借阅情况
         '''
@@ -153,7 +153,7 @@ class RenewHandler(BaseHandler):
     def __init__(self,*args,**kwargs):
         super(RenewHandler, self).__init__(*args,**kwargs)
 
-    async def get(self, *args, **kwargs):
+    async def post(self, *args, **kwargs):
         '''
         用来续借
         '''
@@ -174,7 +174,7 @@ class RenewHandler(BaseHandler):
         return resp.get("pic_str")
 
 class HistoryHandler(BaseHandler):
-    async def get(self, *args, **kwargs):
+    async def post(self, *args, **kwargs):
         '''请求历史借阅'''
         headers = await self.headers()
         try:
@@ -206,7 +206,7 @@ class HistoryHandler(BaseHandler):
         return data
 
 class FineHandler(BaseHandler):
-    async def get(self, *args, **kwargs):
+    async def post(self, *args, **kwargs):
         '''请求违章缴款'''
         headers = await self.headers()
         try:

@@ -33,6 +33,12 @@ class Url(UrlConfig):
         }
         super().__init__(**urls)
 
+    def mobile_headers(self):
+        return {
+            "User-Agent":"Mozilla/5.0 (Linux; Android 7.1.1; OPPO R11 Build/NMF26X; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/55.0.2883.91 Mobile Safari/537.36 yiban_android",
+            "X-Requested-With":"com.yiban.app",
+        }
+
     def login_cas_url(self,service=None):
         ''' 访问cas服务器的链接，另外用于构造使用此cas服务器的其他服务的链接 '''
         if service:
